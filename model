@@ -1,0 +1,92 @@
+import os
+import re
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications.resnet50 import preprocess_input
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+from tensorflow.keras.models import Model
+
+# 데이터 경로 설정
+train_data_dir = 'C:/Users/가자/Downloads/153.반려동물 안구질환 데이터/01.데이터/1.Training/라벨링데이터/TL2/개'
+valid_data_dir = 'C:/Users/가자/Downloads/153.반려동물 안구질환 데이터/01.데이터/2.Validation/라벨링데이터/VL/개/안구/일반'
+num_classes = 24  # 클래스의 수
+
+# 이미지 크기 및 배치 크기 설정
+img_width, img_height = 224, 224
+batch_size = 32
+
+# 데이터 증강 및 전처리 설정
+train_datagen = ImageDataGenerator(
+    preprocessing_function=preprocess_input,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+)
+
+valid_datagen = ImageDataGenerator(preprocessing_function=preprocess_input)
+
+# 파일 이름에서 질환 정도 및 유/무 추출
+def extract_label(filename):
+    label_mapping = {
+        '상': 0,
+        '하': 1,
+        '무': 2,
+        '유': 3,
+        '비성숙':4,
+        '성숙':5,
+        '초기':6 
+    }
+    pattern = r'(결막염|궤양성각막질환|백내장|비궤양성각막질환|색소침착성각막염|안검내반증|안검염|안검종양|유루증|핵경화)_(상|하|무|유|비성숙|성숙|초기|)'
+    match = re.search(pattern, filename)
+    if match:
+        disease = match.group(1)
+        severity = match.group(2)
+        label = disease + '_' + severity
+        return label_mapping[label]
+    else:
+        return None
+
+# 훈련 데이터 및 검증 데이터 불러오기
+train_generator = train_datagen.flow_from_directory(
+    train_data_dir,
+    target_size=(img_width, img_height),
+    batch_size=batch_size,
+    class_mode='categorical'
+)
+
+valid_generator = valid_datagen.flow_from_directory(
+    valid_data_dir,
+    target_size=(img_width, img_height),
+    batch_size=batch_size,
+    class_mode='categorical'
+)
+
+# ResNet-50 모델 불러오기 (사전 훈련된 가중치 사용)
+base_model = tf.keras.applications.ResNet50(
+    include_top=False,
+    weights='imagenet'
+)
+
+# 모델 상단에 추가될 레이어 구성
+x = base_model.output
+x = GlobalAveragePooling2D()(x)
+x = Dense(256, activation='relu')(x)
+predictions = Dense(num_classes, activation='softmax')(x)
+
+# 전체 모델 구성
+model = Model(inputs=base_model.input, outputs=predictions)
+
+# 모델 훈련 설정
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+
+# 모델 훈련
+model.fit(
+    train_generator,
+    epochs=10,
+    validation_data=valid_generator
+)
+
+# 모델 저장
+model.save('dog_eye_disease_model.h5')
