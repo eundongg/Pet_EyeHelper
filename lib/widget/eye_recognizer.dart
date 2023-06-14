@@ -5,6 +5,7 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import '../classifier/classifier.dart';
 import '../styles.dart';
+import 'eye_disease_info.dart';
 import 'photo.dart';
 
 const _labelsFileName = 'assets/labels.txt';
@@ -86,6 +87,7 @@ class _EyeRecognizerStzer extends State<EyeRecognizer> {
             title: '갤러리에서 가져오기',
             source: ImageSource.gallery,
           ),
+          _buildInfoButton(title: '질병 정보 알아보기'),
           const Spacer(),
         ],
       ),
@@ -124,7 +126,7 @@ class _EyeRecognizerStzer extends State<EyeRecognizer> {
     required String title,
   }) {
     return TextButton(
-      onPressed: () => _onPickPhoto(source),
+      onPressed: () => _showSelectionDialog(source),
       child: Container(
         width: 300,
         height: 50,
@@ -141,6 +143,68 @@ class _EyeRecognizerStzer extends State<EyeRecognizer> {
     );
   }
 
+  Widget _buildInfoButton({required String title}) {
+    return TextButton(
+      onPressed: () => showDiseaseList(context),
+      child: Container(
+        width: 300,
+        height: 50,
+        color: kColorBrown,
+        child: Center(
+            child: Text(title,
+                style: const TextStyle(
+                    fontFamily: kButtonFont,
+                    fontSize: 20.0,
+                    fontWeight: FontWeight.w600,
+                    color: kColorLightYellow))),
+      ),
+    );
+  }
+
+  void _showSelectionDialog(ImageSource source) {
+    showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('반려 동물 선택'),
+          content: SizedBox(
+            height: 100,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      child: Text('강아지'),
+                      onPressed: () {
+                        Navigator.of(context).pop('강아지');
+                      },
+                      style: ElevatedButton.styleFrom(
+                          primary: Color.fromARGB(255, 126, 207, 33)),
+                    ),
+                    ElevatedButton(
+                      child: Text('고양이'),
+                      onPressed: () {
+                        Navigator.of(context).pop('고양이');
+                      },
+                      style: ElevatedButton.styleFrom(
+                          primary: const Color.fromARGB(255, 126, 207, 33)),
+                    ),
+                  ],
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    ).then((selectedAnimal) {
+      if (selectedAnimal != null) {
+        _onPickPhoto(source, selectedAnimal);
+      }
+    });
+  }
+
   void _setAnalyzing(bool flag) {
     // 분석 중인지 업데이트
     setState(() {
@@ -148,7 +212,7 @@ class _EyeRecognizerStzer extends State<EyeRecognizer> {
     });
   }
 
-  void _onPickPhoto(ImageSource source) async {
+  void _onPickPhoto(ImageSource source, String selectedAnimal) async {
     // 사진 선택시 호출되는 함수
     final pickedFile = await picker.pickImage(source: source);
 
@@ -161,7 +225,11 @@ class _EyeRecognizerStzer extends State<EyeRecognizer> {
       _selectedImageFile = imageFile;
     });
 
-    _analyzeImage(imageFile);
+    if (selectedAnimal == '강아지') {
+      _analyzeImage(imageFile);
+    } else if (selectedAnimal == '고양이') {
+      _analyzeImage(imageFile);
+    }
   }
 
   void _analyzeImage(File image) {
